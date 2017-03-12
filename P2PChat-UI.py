@@ -55,9 +55,9 @@ def connect():
 		sockfd.connect((sys.argv[1], int(sys.argv[2])))
 	except socket.error as emsg:
 		print("Socket connect error:", emsg)
-		return "Socket connect error: " + str(emsg)
+		return False, emsg
 		# sys.exit(1)
-	return sockfd
+	return True, sockfd
 
 
 # function to send TCP request, return a str
@@ -88,7 +88,7 @@ def keepalive(action):
 				
 			# receive response from room server
 			rmsg = sockfd.recv(1000)
-			rmsg = rmsg.decode("ascii") 
+			rmsg = rmsg.decode("ascii")
 			# check if successfully receive response from room server
 			if rmsg:
 				if rmsg[0] == "F":
@@ -126,9 +126,9 @@ def do_List():
 	# check if client has established TCP connection with room server
 	if not CONNECTED_ROOM:
 		# establish TCP connection
-		res = connect()
+		success , res = connect()
 		# check if connection is successful
-		if type(res) is str:
+		if not success:
 			CmdWin.insert(1.0, "\n[Reject-List] " + res)
 			return
 		else:
@@ -183,9 +183,9 @@ def do_Join():
 	# check if client has established TCP connection with room server
 	if not CONNECTED_ROOM:
 		# establish TCP connection
-		res = connect()
+		success , res = connect()
 		# check if connection is successful
-		if type(res) is str:
+		if not success:
 			CmdWin.insert(1.0, "\n[Reject-Join] " + res)
 			return
 		else:
