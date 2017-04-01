@@ -22,6 +22,7 @@ gLock = threading.Lock()
 NAMED = False
 JOINED = False
 CONNECTED_ROOM = False
+sockfd = None
 room = None # class Room
 user = None # class Peer
 ip = "localhost"
@@ -90,13 +91,12 @@ class Peer:
         self.isconnected = False
         self.isforward = False
 
-    def getHashId(self):
-        str = str(self.name) + str(self.ip) + str(self.port)
-        return sdbm_hash(str)
-
-    def getHashId(self, user):
-        str = str(user.name) + str(user.ip) + str(user.port)
-        return sdbm_hash(str)
+    def getHashId(self, user = None):
+        if user == None:
+            string = str(self.name) + str(self.ip) + str(self.port)
+        else:
+            string = str(user.name) + str(user.ip) + str(user.port)
+        return sdbm_hash(string)
 
     def disconnect(self):
         self.isconnected = False
@@ -344,7 +344,7 @@ def listen_th():
                 should_add = True
             else:
                 #if peer is unknown, send join request to update room
-                status = j_req(room, user)
+                status = j_req(user, room)
                 status, rmsg2 = recv_message(room.sockfd,1000)
                 if status:
                     cur_room = j_res_parse(rmsg2)
@@ -458,10 +458,11 @@ def do_User():
 
 def do_List():
     CmdWin.insert(1.0, "\nPress List")
-    global CONNECTED_ROOM, room
+    global CONNECTED_ROOM, sockfd
 
     # check if client has established TCP connection with room server
     if not CONNECTED_ROOM:
+
         # establish TCP connection
         success , res = tcp_connect(sys.argv[1],sys.argv[2])
         # check if connection is successful
@@ -469,21 +470,21 @@ def do_List():
             CmdWin.insert(1.0, "\n[Reject-List] " + res)
             return
         else:
-            room.sockfd = res
+            sockfd = res
 
         CONNECTED_ROOM = True
         CmdWin.insert(1.0, "\n[List] connected to server")
     
     # send 'L' request to room server
-    request = "L::\r\n".encode('ascii')
-    status = send_request(room.sockfd, request)
+    request = "L::\r\n"
+    status = send_request(sockfd, request)
     # check if socket.send is successful
     if not status:
         CmdWin.insert(1.0, "\n[Reject-List] " + res)
         return
 
     # receive response from room server
-    rmsg = room.sockfd.recv(1000)
+    rmsg = sockfd.recv(1000)
     rmsg = rmsg.decode("ascii") 
     # check if successfully receive response from room server
     if rmsg:
@@ -497,7 +498,7 @@ def do_List():
 
     
 def do_Join():
-    global NAMED, JOINED, CONNECTED_ROOM, user, room
+    global NAMED, JOINED, CONNECTED_ROOM, user, room, sockfd
 
     # check if user has registered username
     if not NAMED:
@@ -507,18 +508,15 @@ def do_Join():
     if not userentry.get():
         CmdWin.insert(1.0, "\n[Reject-Join] You must provide the target chatroom name")
         return
-
-    roomname = userentry.get()
-    room = Room(userentry.get(), sys.argv[1], int(sys.argv[2]))
-
     # check if user has joined a chatroom group before
     if JOINED:
         CmdWin.insert(1.0, "\n[Reject-Join] You cannnot join new chatroom group \
                   since you have already joined a chatroom group")
         return
 
+
     # check if client has established TCP connection with room server
-    if not CONNECTED_ROOM:
+    if not CONNECTED_ROOM:   
         # establish TCP connection
         success , res = tcp_connect(sys.argv[1],sys.argv[2])
         # check if connection is successful
@@ -526,11 +524,14 @@ def do_Join():
             CmdWin.insert(1.0, "\n[Reject-Join] " + res)
             return
         else:
-            room.sockfd = res
+            sockfd = res
 
         CONNECTED_ROOM = True
         CmdWin.insert(1.0, "\n[Join] connected to server")
-            
+    
+    roomname = userentry.get()
+    room = Room(userentry.get(), sys.argv[1], int(sys.argv[2]))
+    room.sockfd = sockfd       
     # send 'J' request to room server
     status = j_req(user,room)
     # check if socket.send is successful
@@ -553,17 +554,16 @@ def do_Join():
         # print("P: Received a join message")
         CmdWin.insert(1.0, "\n[Join] " + rmsg)
         JOINED = True
-    choose_forward(rmsg)
-    
-    #start keepalive
-    keepalive_th = threading.Thread(name="keepalive_th", target=keepalive_th, args=('Join',))
-    keepalive_th.start()
-    room.keepalive_th = keepalive_th
-    #start listening to request
-    listen_th = threading.Thread(name="listen_th", target=listen_th,args=(user.sockfd,))
-    listen_th.start()
-    room.listen_th = listen_th
-    userentry.delete(0, END)
+    # choose_forward(rmsg)
+    # #start keepalive
+    # keepalive_th = threading.Thread(name="keepalive_th", target=keepalive_th, args=('Join',))
+    # keepalive_th.start()
+    # room.keepalive_th = keepalive_th
+    # #start listening to request
+    # listen_th = threading.Thread(name="listen_th", target=listen_th,args=(user.sockfd,))
+    # listen_th.start()
+    # room.listen_th = listen_th
+    # userentry.delete(0, END)
 
 
 def do_Send():
@@ -571,12 +571,15 @@ def do_Send():
     if not userentry.get() or not CONNECTED_ROOM or not JOINED:
         return
     message = userentry.get()
+    MsgWin.insert(1.0, "\n" + user.name + ":" + message)
 
-    msg = "T:" + room.name +":"+ user.name +":"+ str(max(user.msgid)) +":"+ \
-    + str(len(message)) +":"+ message + "::\r\n"
-    #update user's message id 
-    user.msgid.append(max(user.msgid) + 1)
-    room.sendAll(msg)
+    # msg = "T:" + room.name +":"+ user.name +":"+ str(max(user.msgid)) +":"+ \
+    # + str(len(message)) +":"+ message + "::\r\n"
+    # #update user's message id 
+    # user.msgid.append(max(user.msgid) + 1)
+    # room.sendAll(msg)
+
+    CmdWin.insert(1.0, "\nPress Send")
     userentry.delete(0, END)
 
 
@@ -591,8 +594,10 @@ def do_Quit():
     # join all threads to terminate before termination of main thread
     for t in room.peers_ths:
         t.join()
-    room.keepalive_th.join()
-    room.listen_th.join()
+    if room.keepalive_th:
+        room.keepalive_th.join()
+    if room.listen_th:
+        room.listen_th.join()
     gLock.release()
 
     CmdWin.insert(1.0, "\nPress Quit")
