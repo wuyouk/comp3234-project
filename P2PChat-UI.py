@@ -79,7 +79,8 @@ def recv_message(sockfd, length):
         rmsg = rmsg.decode("ascii")
     except socket.timeout:
         return True, "" # time out return true and empty msg
-    except socket.error as err:
+    except socket.error as emsg:
+        print("E: Socket send error:", emsg)
         return False, "" # broken connection
     return True, rmsg 
 
@@ -126,7 +127,7 @@ class Room:
         self.hashid = 0
         self.peers_ths = [] # manage connection with peers threads
         self.keepalive_th = None # keepalive thread
-        self.listen_th = None # listening to income request
+        self.listen_th = None # listening to incoming request
         if peers == None:
             self.peers = []
         else:
@@ -188,7 +189,7 @@ class Room:
             if peer.isconnected:
                 status = send_request(peer.sockfd,message)
                 if not status:
-                    print("Connection break")
+                    print("Connection broke")
                     peer.disconnect()
                 else:
                     print(peer.port,"sent")
@@ -197,7 +198,7 @@ class Room:
 # Helper Functions 
 #
 
-# JOIN related
+# join request helper function
 # function to send join request: J:roomname:username:userIP:userPort::\r\n
 def j_req(user,room):
     request = "J:" + str(room.name) + ":" + str(user.name) + ":"\
@@ -206,7 +207,7 @@ def j_req(user,room):
     status = send_request(room.sockfd, request)
     return status
 
-# function to get peers from join request response:
+# function to get peers from join request's response:
 # example: M:MSID:userA:ip:port return room contains tom's information
 def j_res_parse(rmsg):
     msg = rmsg.split(":")
@@ -224,7 +225,7 @@ def j_res_parse(rmsg):
     #     print(peer.port)
     return Room(peers = peer_list)
 
-# Peer to Peer related
+# Peer request helper function
 # send peer connection request
 def p_req(sender, target, room):
     msg = "P:" + room.name + ":" + sender.name + ":" + sender.ip + ":" + \
@@ -259,7 +260,7 @@ def p_req_parse(rmsg,room):
     else:
         return False, None
 
-# Text message:
+# Text message request helper function:
 #send a message
 #T:roomname:originHID:origin_username:msgID:msgLength:Message content::\r\n
 def send_t(user, target, room, message):
@@ -279,7 +280,12 @@ def parse_t(room, rmsg):
     if room.hasPeer(hashid):
         if msgid not in room.getPeer(hashid).msgid:
             print("new message received")
-            return True, msg[3], msg[6], msgid, hashid
+            # if body has : splited, join back
+            msg_body = msg[6]
+            for piece in msg[7:len(msg)-2]:
+                msg_body = msg_body + ":"
+                msg_body = msg_body + piece
+            return True, msg[3], msg_body, msgid, hashid
         else:
             print("old message received")
     return False, None, None, None, None
@@ -468,8 +474,10 @@ def keepalive_th(action):
             CmdWin.insert(1.0, "\n[" + action + "] " + rmsg)
             JOINED = True
         else:
-            CmdWin.insert(1.0, "\n[Reject-" + action + "] Client connection is broken")
+            CmdWin.insert(1.0, "\n[Reject-" + action + "] broken connection with server")
+            JOINED = False
             CONNECTED_ROOM = False
+            break
 
 
 
@@ -565,10 +573,10 @@ def do_Join():
 
         CONNECTED_ROOM = True
         CmdWin.insert(1.0, "\n[Join] connected to server")
-    
-    roomname = userentry.get()
-    room = Room(userentry.get(), sys.argv[1], int(sys.argv[2]))
-    room.sockfd = sockfd       
+    if not room:
+        roomname = userentry.get()
+        room = Room(userentry.get(), sys.argv[1], int(sys.argv[2]))
+        room.sockfd = sockfd       
     # send 'J' request to room server
     status = j_req(user,room)
     # check if socket.send is successful
@@ -593,15 +601,20 @@ def do_Join():
         JOINED = True
 
     choose_forward(rmsg)
+    
     #start keepalive
+    if room.keepalive_th:
+        room.keepalive_th.close()
     keepalive = threading.Thread(name="keepalive_th", target=keepalive_th, args=('Join',))
     keepalive.start()
     room.keepalive = keepalive_th
+    
     #start listening to request
-    listen = threading.Thread(name="listen_th", target=listen_th,args=())
-    listen.start()
-    room.listen_th = listen
-
+    if not room.listen_th:
+        listen = threading.Thread(name="listen_th", target=listen_th,args=())
+        listen.start()
+        room.listen_th = listen
+    
     userentry.delete(0, END)
 
 
