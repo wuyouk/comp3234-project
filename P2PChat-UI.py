@@ -407,7 +407,7 @@ def listen_th():
 # thread to handle peer information
 def peer_th(current):
     print("peer_th",current.port)
-    global gLock, room
+    global gLock, room, user
     sockfd = current.sockfd
     sockfd.settimeout(1.0)
 
@@ -441,6 +441,14 @@ def peer_th(current):
         # use mutex lock gLock to protect the access of WList
         else:
             print("Peer Leave", current.port)
+            if current.isforward == True: # find a new forward
+                # send 'J' request to room server
+                status = j_req(user,room)
+                # receive response from room server
+                status2, rmsg = recv_message(room.sockfd, 1000)
+                if status and status2 and rmsg:
+                    choose_forward(rmsg)
+
             current.disconnect()
             break
     return
