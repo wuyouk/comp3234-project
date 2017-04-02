@@ -275,13 +275,14 @@ def parse_t(room, rmsg):
         msgid = int(msg[4])
     except ValueError:
         print("Can not parse_t")
-        return False, None, None
+        return False, None, None, None
     if room.hasPeer(hashid):
         if msgid not in room.getPeer(hashid).msgid:
             print("new message received")
-            return True, msg[3], msg[6]
-    print("old message received")
-    return False, None, None
+            return True, msg[3], msg[6], msgid, hashid
+        else:
+            print("old message received")
+    return False, None, None, None, None
 
 # function to set up forward link
 def choose_forward(rmsg):
@@ -398,7 +399,7 @@ def listen_th():
 
 # thread to handle peer information
 def peer_th(current):
-    
+    print("peer_th",current.port)
     global gLock, room
     sockfd = current.sockfd
     sockfd.settimeout(1.0)
@@ -410,17 +411,27 @@ def peer_th(current):
             continue # timeout occurs
         if status and rmsg:
             print(rmsg)
-            valid, name, body = parse_t(room, rmsg)
+            valid, name, body, msgid, hashid = parse_t(room, rmsg)
             print("get a message")
             if not valid:
-                continue
-            print("get a valid message")
+                #update peer and check again
+                status2 = j_req(user, room)
+                status2, rmsg2 = recv_message(room.sockfd,1000)
+                if status2 and rmsg2:
+                    cur_room = j_res_parse(rmsg2)
+                    room.updatePeer(cur_room)
+                valid, name, body, msgid, hashid = parse_t(room, rmsg)
+                if not valid:
+                    continue
+            room.getPeer(hashid).msgid.append(msgid)
             msg = name + ":" + body
+            print("get a valid message",msg)
             MsgWin.insert(1.0,"\n" + msg)
             gLock.acquire()
             for peer in room.peers:
                 if peer.isconnected and peer.hashid != current.hashid:
-                    success = send_request(current.sockfd,rmsg)
+                    print('Forward',peer.port)
+                    success = send_request(peer.sockfd,rmsg)
                     if not success:
                         peer.disconnect()
             gLock.release()
@@ -605,6 +616,8 @@ def do_Send():
     + str(len(message)) +":"+ str(message) + "::\r\n"
     #update user's message id 
     user.msgid.append(max(user.msgid) + 1)
+    room.getPeer(user.hashid).msgid = user.msgid
+
     room.sendAll(msg)
 
     CmdWin.insert(1.0, "\nPress Send")
