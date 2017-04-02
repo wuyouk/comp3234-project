@@ -548,7 +548,7 @@ def do_Join():
     # check if user has joined a chatroom group before
     if JOINED:
         CmdWin.insert(1.0, "\n[Reject-Join] You cannnot join new chatroom group \
-                  since you have already joined a chatroom group")
+                  since you have already joined a  group:" + room.name)
         return
 
 
@@ -593,10 +593,10 @@ def do_Join():
         JOINED = True
 
     choose_forward(rmsg)
-    # #start keepalive
-    # keepalive_th = threading.Thread(name="keepalive_th", target=keepalive_th, args=('Join',))
-    # keepalive_th.start()
-    # room.keepalive_th = keepalive_th
+    #start keepalive
+    keepalive = threading.Thread(name="keepalive_th", target=keepalive_th, args=('Join',))
+    keepalive.start()
+    room.keepalive = keepalive_th
     #start listening to request
     listen = threading.Thread(name="listen_th", target=listen_th,args=())
     listen.start()
