@@ -407,11 +407,11 @@ def listen_th():
 # thread to handle peer information
 def peer_th(current):
     print("peer_th",current.port)
-    global gLock, room, user
+    global gLock, room, user, quit_alert
     sockfd = current.sockfd
     sockfd.settimeout(1.0)
 
-    while (True):
+    while True and not quit_alert:
         # wait for any message to arrive
         status, rmsg = recv_message(current.sockfd,1024)
         if status and not rmsg:
@@ -455,7 +455,9 @@ def peer_th(current):
 
 # thread to keepalive by sending join requests
 def keepalive_th(action):
+
     global JOINED, CONNECTED_ROOM, user, room, quit_alert
+    
     while True and quit_alert:
         time.sleep(10)
         status = j_req(user, room)
