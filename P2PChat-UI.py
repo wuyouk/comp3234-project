@@ -57,6 +57,7 @@ def sdbm_hash(instr):
 def tcp_connect(ip,port):
     try:
         sockfd = socket.socket()
+        sockfd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sockfd.connect((ip, int(port)))
     except socket.error as emsg:
         print("Socket connect error:", emsg)
@@ -457,9 +458,13 @@ def peer_th(current):
 def keepalive_th(action):
 
     global JOINED, CONNECTED_ROOM, user, room, quit_alert
-    
-    while True and quit_alert:
-        time.sleep(10)
+    i = 1
+    while True and not quit_alert:
+        time.sleep(0.5)
+        if i % 20 != 0:
+            i = i + 1
+            continue
+        i = 1
         status = j_req(user, room)
         # check if socket.send is successful
         if not status:
