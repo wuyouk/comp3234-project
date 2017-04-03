@@ -6,8 +6,12 @@
 # Python version: Python 3.5.0
 # Version: 1
 
+# Command
+# cd Desktop/S2Courses/COMP3234_Computer\ and\ Communication\ Networks/Project/comp3234-project/
+# python3 P2PChat-stage1.py 147.8.94.112 32340 33333
 
 from tkinter import *
+
 import sys
 import socket
 import time
