@@ -26,7 +26,7 @@ quit_alert = False #Set to true if quit, otherwise false
 sockfd = None
 room = None # class Room
 user = None # class Peer
-ip = "localhost"
+
 pass
 
 
@@ -91,7 +91,7 @@ def recv_message(sockfd, length):
 
 # Class for peer
 class Peer:
-    def __init__(self, name, ip, port, msgid):
+    def __init__(self, name="", ip="", port=0, msgid=0):
         self.name = name
         self.ip = ip
         self.port = port
@@ -206,6 +206,9 @@ class Room:
 # join request helper function
 # function to send join request: J:roomname:username:userIP:userPort::\r\n
 def j_req(user,room):
+    ip = room.sockfd.getsockname()[0]
+    user.ip = ip
+    user.hashid = user.getHashId()
     request = "J:" + str(room.name) + ":" + str(user.name) + ":"\
                    + str(user.ip) + ":" + str(user.port)\
                    + "::\r\n"
@@ -220,7 +223,7 @@ def j_res_parse(rmsg):
     i = 2 # M:MSID:userA user information start at index 2
     while (i < len(msg) - 2):
         try:
-            cur = Peer(msg[i], msg[i + 1], int(msg[i + 2]),0)
+            cur = Peer(name=msg[i], ip=msg[i + 1], port=int(msg[i + 2]),msgid=0)
         except ValueError:
             print ('Can not parse rmsg in choose_forward')
         peer_list.append(cur)
@@ -254,7 +257,7 @@ def p_req_parse(rmsg,room):
         return False, None
     # extract peer
     try:
-        cur = Peer(msg[2], msg[3], int(msg[4]),int(msg[5]))
+        cur = Peer(name=msg[2], ip=msg[3], port=int(msg[4]),msgid=int(msg[5]))
     except ValueError:
         print ('Can not parse rmsg in choose_forward')
     if room.hasPeer(cur):
@@ -494,7 +497,7 @@ def keepalive_th(action):
 
 
 def do_User():
-    global JOINED, NAMED, user, ip
+    global JOINED, NAMED, user
     # check if user input for username is empty
     if not userentry.get():
         CmdWin.insert(1.0, "\n[Reject-User] Username cannot be empty")
@@ -505,7 +508,7 @@ def do_User():
         else:
             # register username
             NAMED = True
-            user = Peer(userentry.get(), ip, int(sys.argv[3]),0)
+            user = Peer(name=userentry.get(), port=int(sys.argv[3]),msgid=0)
             CmdWin.insert(1.0, "\n[User] Username: " + user.name)
 
     
