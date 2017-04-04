@@ -32,7 +32,7 @@ quit_alert = False # Set to true if quit, otherwise false
 sockfd = None
 room = None # class Room
 user = None # class Peer
-ip = "localhost"
+
 pass
 
 
@@ -97,7 +97,7 @@ def recv_message(sockfd, length):
 
 # Class for peer
 class Peer:
-    def __init__(self, name, ip, port, msgid):
+    def __init__(self, name="", ip="", port=0, msgid=0):
         self.name = name
         self.ip = ip
         self.port = port
@@ -212,6 +212,9 @@ class Room:
 # join request helper function
 # function to send join request: J:roomname:username:userIP:userPort::\r\n
 def j_req(user,room):
+    ip = room.sockfd.getsockname()[0]
+    user.ip = ip
+    user.hashid = user.getHashId()
     request = "J:" + str(room.name) + ":" + str(user.name) + ":"\
                    + str(user.ip) + ":" + str(user.port)\
                    + "::\r\n"
@@ -226,7 +229,7 @@ def j_res_parse(rmsg):
     i = 2 # M:MSID:userA user information start at index 2
     while (i < len(msg) - 2):
         try:
-            cur = Peer(msg[i], msg[i + 1], int(msg[i + 2]),0)
+            cur = Peer(name=msg[i], ip=msg[i + 1], port=int(msg[i + 2]),msgid=0)
         except ValueError:
             print ('Can not parse rmsg in choose_forward')
         peer_list.append(cur)
@@ -261,7 +264,7 @@ def p_req_parse(rmsg, room):
         return False, None
     # extract peer
     try:
-        cur = Peer(msg[2], msg[3], int(msg[4]),int(msg[5]))
+        cur = Peer(name=msg[2], ip=msg[3], port=int(msg[4]),msgid=int(msg[5]))
     except ValueError:
         print ('Can not parse rmsg in choose_forward')
     if room.hasPeer(cur):
@@ -348,10 +351,10 @@ def choose_forward(rmsg):
                 start = (start + 1) % len(room.peers)
 
     # testing
-    # if established:
-    #     print("link:" + str(user.port) + str(peer.port)) 
-    # else:
-    #     print("linkfailed")
+    if established:
+        print("link:" + str(user.port) + str(peer.port)) 
+    else:
+        print("Can not establish forward link, retry in 20 seconds")
     return established
 
 # listening thread
@@ -471,8 +474,8 @@ def keepalive_th(action):
     global JOINED, CONNECTED_ROOM, user, room, quit_alert
     i = 1
     while True and not quit_alert:
-        time.sleep(0.5)
-        if i % 20 != 0:
+        time.sleep(0.1)
+        if i % 100 != 0:
             i = i + 1
             continue
         i = 1
@@ -505,7 +508,7 @@ def keepalive_th(action):
 
 
 def do_User():
-    global JOINED, NAMED, user, ip
+    global JOINED, NAMED, user
     # check if user input for username is empty
     if not userentry.get():
         CmdWin.insert(1.0, "\n[Reject-User] Username cannot be empty")
@@ -516,7 +519,7 @@ def do_User():
         else:
             # register username
             NAMED = True
-            user = Peer(userentry.get(), ip, int(sys.argv[3]),0)
+            user = Peer(name=userentry.get(), port=int(sys.argv[3]),msgid=0)
             CmdWin.insert(1.0, "\n[User] Username: " + user.name)
 
     
@@ -615,7 +618,17 @@ def do_Join():
         CmdWin.insert(1.0, "\n[Reject-Join] Client connection is broken")
         CONNECTED_ROOM = False
         return
+<<<<<<< HEAD:P2PChat-stage1.py
     
+||||||| merged common ancestors
+=======
+
+    if status and not rmsg:
+        CmdWin.insert(1.0, "\n[Reject-Join] Server Response Timeout")
+        CONNECTED_ROOM = False
+        return
+        
+>>>>>>> origin/zhuyouwei:P2PChat-UI.py
     if status and rmsg:
         if rmsg[0] == "F":
             CmdWin.insert(1.0, "\n[Reject-Join] " + rmsg)
@@ -624,7 +637,8 @@ def do_Join():
         CmdWin.insert(1.0, "\n[Join] " + rmsg)
         JOINED = True
 
-    choose_forward(rmsg)
+    if not room.hasForward():
+        choose_forward(rmsg)
     
     #start keepalive
     if room.keepalive_th:
