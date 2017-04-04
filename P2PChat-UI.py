@@ -463,8 +463,8 @@ def keepalive_th(action):
     global JOINED, CONNECTED_ROOM, user, room, quit_alert
     i = 1
     while True and not quit_alert:
-        time.sleep(0.5)
-        if i % 20 != 0:
+        time.sleep(0.1)
+        if i % 100 != 0:
             i = i + 1
             continue
         i = 1
@@ -612,8 +612,8 @@ def do_Join():
         # print("P: Received a join message")
         CmdWin.insert(1.0, "\n[Join] " + rmsg)
         JOINED = True
-
-    choose_forward(rmsg)
+    if room.hasForward() == False:
+        choose_forward(rmsg)
     
     #start keepalive
     if room.keepalive_th:
