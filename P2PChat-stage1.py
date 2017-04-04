@@ -8,7 +8,9 @@
 
 # Command
 # cd Desktop/S2Courses/COMP3234_Computer\ and\ Communication\ Networks/Project/comp3234-project/
-# python3 P2PChat-stage1.py 147.8.94.112 32340 33333
+# python3 P2PChat-stage1.py 147.8.94.67 32340 33333
+
+
 
 from tkinter import *
 
@@ -25,8 +27,8 @@ gLock = threading.Lock()
 
 NAMED = False
 JOINED = False
-CONNECTED_ROOM = False
-quit_alert = False #Set to true if quit, otherwise false
+CONNECTED_ROOM = False # whether established TCP connection with room server
+quit_alert = False # Set to true if quit, otherwise false
 sockfd = None
 room = None # class Room
 user = None # class Peer
@@ -44,9 +46,9 @@ pass
 # and str(Port) to form the input to this hash function
 #
 def bubbleSort(alist):
-    for passnum in range(len(alist)-1,0,-1):
+    for passnum in range(len(alist)-1, 0, -1):
         for i in range(passnum):
-            if alist[i].hashid>alist[i+1].hashid:
+            if alist[i].hashid > alist[i+1].hashid:
                 temp = alist[i]
                 alist[i] = alist[i+1]
                 alist[i+1] = temp
@@ -154,7 +156,7 @@ class Room:
                 return True
         return False
 
-    def hasPeer(self,user):
+    def hasPeer(self, user):
         cur_id = 0
         if type(user) is not int:
             cur_id = user.hashid
@@ -196,12 +198,12 @@ class Room:
     def sendAll(self, message):
         for peer in self.peers:
             if peer.isconnected:
-                status = send_request(peer.sockfd,message)
+                status = send_request(peer.sockfd, message)
                 if not status:
                     print("Connection broke")
                     peer.disconnect()
                 else:
-                    print(peer.port,"sent")
+                    print(peer.port, "sent")
 
 #
 # Helper Functions 
@@ -250,8 +252,9 @@ def p_res(sender, target, room):
     msg = "S:" + max(sender.msgid) + "::\r\n"
     status = send_request(target.sockfd, msg)
     return status
+
 # function to get peer from p request message:
-def p_req_parse(rmsg,room):
+def p_req_parse(rmsg, room):
     msg = rmsg.split(":")
     # check header and room information
     if msg[0] != "P" or msg[1] != room.name:
@@ -270,14 +273,15 @@ def p_req_parse(rmsg,room):
         return False, None
 
 # Text message request helper function:
-#send a message
-#T:roomname:originHID:origin_username:msgID:msgLength:Message content::\r\n
+# send a message
+# T:roomname:originHID:origin_username:msgID:msgLength:Message content::\r\n
 def send_t(user, target, room, message):
     msg = "T:" + room.name + ":" + str(user.hashid) + ":" + user.name + \
     ":" + max(user.msgid) + ":" + len(message) + ":" + message + "::\r\n"
     status = send_request(target.sockfd, msg)
     return status
-#pase message to get sender and message body
+
+# pase message to get sender and message body
 def parse_t(room, rmsg):
     msg = rmsg.split(":")
     try:
@@ -302,7 +306,6 @@ def parse_t(room, rmsg):
 # function to set up forward link
 def choose_forward(rmsg):
     global room, user
-
     cur_room = j_res_parse(rmsg)
     room.updatePeer(cur_room)
     #2.sort the membership by increasing order
@@ -327,7 +330,7 @@ def choose_forward(rmsg):
         else: 
             # try to build forward link with this peer
             # print("Try:", peer.port)
-            success , sockfd = tcp_connect(peer.ip,peer.port)
+            success , sockfd = tcp_connect(peer.ip, peer.port)
             if success:
                 peer.sockfd = sockfd
                 status = p_req(user, peer, room)
@@ -343,6 +346,7 @@ def choose_forward(rmsg):
                     start = (start + 1) % len(room.peers)
             else:
                 start = (start + 1) % len(room.peers)
+
     # testing
     # if established:
     #     print("link:" + str(user.port) + str(peer.port)) 
@@ -374,7 +378,7 @@ def listen_th():
             continue
         # peer to peer handshake
         should_add = False
-        #parse received message of peer information
+        # parse received message of peer information
         status, rmsg = recv_message(newfd, 1000)
         if status and rmsg:
             #check if peer in the room
@@ -385,14 +389,16 @@ def listen_th():
             else:
                 #if peer is unknown, send join request to update room
                 status = j_req(user, room)
-                status, rmsg2 = recv_message(room.sockfd,1000)
-                if status and rmsg2:
-                    cur_room = j_res_parse(rmsg2)
-                    room.updatePeer(cur_room)
-                    #check if peer in the room again
-                    in_room, peer = p_req_parse(rmsg, room)
-                    if in_room:
-                        should_add = True
+                if status:
+                    status, rmsg2 = recv_message(room.sockfd,1000)
+                    if status and rmsg2:
+                        cur_room = j_res_parse(rmsg2)
+                        room.updatePeer(cur_room)
+                        # check if peer in the room again
+                        in_room, peer = p_req_parse(rmsg, room)
+                        if in_room:
+                            should_add = True
+        
         # if peer is unknown continue
         if not should_add:
             newfd.close()
@@ -418,7 +424,7 @@ def peer_th(current):
 
     while True and not quit_alert:
         # wait for any message to arrive
-        status, rmsg = recv_message(current.sockfd,1024)
+        status, rmsg = recv_message(current.sockfd, 1024)
         if status and not rmsg:
             continue # timeout occurs
         if status and rmsg:
@@ -439,6 +445,7 @@ def peer_th(current):
             for peer in room.peers:
                 if peer.isconnected and peer.hashid != current.hashid:
                     success = send_request(peer.sockfd,rmsg)
+                    print(peer.port, "sent")
                     if not success:
                         peer.disconnect()
             
@@ -587,15 +594,17 @@ def do_Join():
 
         CONNECTED_ROOM = True
         CmdWin.insert(1.0, "\n[Join] connected to server")
+    
     if not room:
         roomname = userentry.get()
         room = Room(userentry.get(), sys.argv[1], int(sys.argv[2]))
-        room.sockfd = sockfd       
+        room.sockfd = sockfd
+
     # send 'J' request to room server
     status = j_req(user,room)
     # check if socket.send is successful
     if not status:
-        CmdWin.insert(1.0, "\n[Reject-Join] " + res)
+        CmdWin.insert(1.0, "\n[Reject-Join] Send Join request fails")
         return
 
     # receive response from room server
@@ -606,6 +615,7 @@ def do_Join():
         CmdWin.insert(1.0, "\n[Reject-Join] Client connection is broken")
         CONNECTED_ROOM = False
         return
+    
     if status and rmsg:
         if rmsg[0] == "F":
             CmdWin.insert(1.0, "\n[Reject-Join] " + rmsg)
@@ -634,25 +644,27 @@ def do_Join():
 
 def do_Send():
     global CONNECTED_ROOM, JOINED, gLock, room, user
-    if not userentry.get() or not CONNECTED_ROOM or not JOINED:
+    if not userentry.get():
+        CmdWin.insert(1.0, "\n[Reject-Send] Send message cannot be empty")
+        return
+    if not CONNECTED_ROOM or not JOINED:
+        CmdWin.insert(1.0, "\n[Reject-Send] You have not joined a room or established connection")
         return
     message = userentry.get()
     MsgWin.insert(1.0, "\n" + user.name + ":" + message)
-#T:roomname:originHID:origin_username:msgID:msgLength:Message content::\r\n
+    # T:roomname:originHID:origin_username:msgID:msgLength:Message content::\r\n
     msg = "T:" + room.name +":"+ str(user.hashid)+":"+user.name +":"+ str(max(user.msgid) + 1) +":" \
     + str(len(message)) +":"+ str(message) + "::\r\n"
-    #update user's message id 
+    # update user's message id 
     user.msgid.append(max(user.msgid) + 1)
     room.getPeer(user.hashid).msgid = user.msgid
 
     room.sendAll(msg)
 
-    CmdWin.insert(1.0, "\nPress Send")
     userentry.delete(0, END)
 
 
 def do_Quit():
-
     global gLock, room, quit_alert
     
     quit_alert = True
