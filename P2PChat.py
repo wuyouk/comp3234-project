@@ -618,17 +618,12 @@ def do_Join():
         CmdWin.insert(1.0, "\n[Reject-Join] Client connection is broken")
         CONNECTED_ROOM = False
         return
-<<<<<<< HEAD:P2PChat-stage1.py
-    
-||||||| merged common ancestors
-=======
 
     if status and not rmsg:
         CmdWin.insert(1.0, "\n[Reject-Join] Server Response Timeout")
         CONNECTED_ROOM = False
         return
-        
->>>>>>> origin/zhuyouwei:P2PChat-UI.py
+
     if status and rmsg:
         if rmsg[0] == "F":
             CmdWin.insert(1.0, "\n[Reject-Join] " + rmsg)
