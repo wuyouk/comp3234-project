@@ -343,10 +343,10 @@ def choose_forward(rmsg):
             else:
                 start = (start + 1) % len(room.peers)
     # testing
-    # if established:
-    #     print("link:" + str(user.port) + str(peer.port)) 
-    # else:
-    #     print("linkfailed")
+    if established:
+        print("link:" + str(user.port) + str(peer.port)) 
+    else:
+        print("Can not establish forward link, retry in 20 seconds")
     return established
 
 # listening thread
@@ -605,6 +605,12 @@ def do_Join():
         CmdWin.insert(1.0, "\n[Reject-Join] Client connection is broken")
         CONNECTED_ROOM = False
         return
+
+    if status and not rmsg:
+        CmdWin.insert(1.0, "\n[Reject-Join] Server Response Timeout")
+        CONNECTED_ROOM = False
+        return
+        
     if status and rmsg:
         if rmsg[0] == "F":
             CmdWin.insert(1.0, "\n[Reject-Join] " + rmsg)
@@ -612,7 +618,8 @@ def do_Join():
         # print("P: Received a join message")
         CmdWin.insert(1.0, "\n[Join] " + rmsg)
         JOINED = True
-    if room.hasForward() == False:
+
+    if not room.hasForward():
         choose_forward(rmsg)
     
     #start keepalive
