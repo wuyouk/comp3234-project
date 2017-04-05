@@ -8,7 +8,7 @@
 
 # Command
 # cd Desktop/S2Courses/COMP3234_Computer\ and\ Communication\ Networks/Project/comp3234-project/
-# python3 P2PChat-stage1.py 147.8.94.67 32340 33333
+# python3 P2PChat.py 202.189.121.226 32340 33330
 
 
 
@@ -368,6 +368,7 @@ def listen_th():
     try:
         sockfd.bind(('', user.port))
     except socket.error as emsg:
+        MsgWin.insert(1.0,"\n" + "Socket bind error: " + str(emsg) + ". You should quit")
         print("Socket bind error: ", emsg)
         
     # set socket listening queue
@@ -469,7 +470,7 @@ def peer_th(current):
     return
 
 # thread to keepalive by sending join requests
-def keepalive_th(action):
+def keepalive_th(action=""):
 
     global JOINED, CONNECTED_ROOM, user, room, quit_alert
     i = 1
@@ -536,7 +537,7 @@ def do_List():
         success , res = tcp_connect(sys.argv[1],sys.argv[2])
         # check if connection is successful
         if not success:
-            CmdWin.insert(1.0, "\n[Reject-List] " + res)
+            CmdWin.insert(1.0, "\n[Reject-List] " + str(res))
             return
         else:
             sockfd = res
@@ -549,7 +550,7 @@ def do_List():
     status = send_request(sockfd, request)
     # check if socket.send is successful
     if not status:
-        CmdWin.insert(1.0, "\n[Reject-List] " + res)
+        CmdWin.insert(1.0, "\n[Reject-List] " + str(res))
         return
 
     # receive response from room server
@@ -587,10 +588,10 @@ def do_Join():
     # check if client has established TCP connection with room server
     if not CONNECTED_ROOM:   
         # establish TCP connection
-        success , res = tcp_connect(sys.argv[1],sys.argv[2])
+        success, res = tcp_connect(sys.argv[1],sys.argv[2])
         # check if connection is successful
         if not success:
-            CmdWin.insert(1.0, "\n[Reject-Join] " + res)
+            CmdWin.insert(1.0, "\n[Reject-Join] " + str(res))
             return
         else:
             sockfd = res
@@ -626,7 +627,7 @@ def do_Join():
 
     if status and rmsg:
         if rmsg[0] == "F":
-            CmdWin.insert(1.0, "\n[Reject-Join] " + rmsg)
+            CmdWin.insert(1.0, "\n[Reject-Join] " + str(rmsg))
             return
         # print("P: Received a join message")
         CmdWin.insert(1.0, "\n[Join] " + rmsg)
